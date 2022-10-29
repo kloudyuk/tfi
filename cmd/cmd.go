@@ -15,17 +15,17 @@ import (
 
 // Flags
 var (
-	help     bool
-	region   string
-	skipInit bool
-	varFile  string
+	help    bool
+	noInit  bool
+	region  string
+	varFile string
 )
 
 func init() {
 	flag.Usage = Usage
 	flag.BoolVarP(&help, "help", "h", false, "Show help")
+	flag.BoolVarP(&noInit, "no-init", "n", false, "Generate tfvars but don't run terraform init")
 	flag.StringVarP(&region, "region", "r", "eu-west-1", "AWS region")
-	flag.BoolVarP(&skipInit, "skip", "s", false, "Skip running the terraform init")
 	flag.StringVarP(&varFile, "var-file", "v", "", "Path to .tfvars file")
 	flag.Parse()
 }
@@ -76,13 +76,16 @@ func Execute() error {
 	}, "-"))
 	vars.SetAttributeValue("session_name", cty.StringVal(sessionName))
 
+	sourceVars := util.Variables()
 	gitlabVars, err := util.GitlabVars()
 	if err != nil {
 		return err
 	}
-	for k, v := range gitlabVars {
-		if vars.GetAttribute(k) == nil {
-			vars.SetAttributeValue(k, cty.StringVal(v))
+	for name, value := range gitlabVars {
+		if sourceVars.Has(name) {
+			if vars.GetAttribute(name) == nil {
+				vars.SetAttributeValue(name, cty.StringVal(value))
+			}
 		}
 	}
 
@@ -93,7 +96,7 @@ func Execute() error {
 	}
 
 	// Leave if skipping init
-	if skipInit {
+	if noInit {
 		return nil
 	}
 

@@ -10,6 +10,8 @@ import (
 )
 
 var gitlabClient *gitlab.Client
+var gitlabProject *gitlab.Project
+var gitlabVars map[string]string
 var repo *git.Repository
 
 const varPrefix = "TF_VAR_"
@@ -51,6 +53,9 @@ func Gitlab() *gitlab.Client {
 }
 
 func GitlabProject() *gitlab.Project {
+	if gitlabProject != nil {
+		return gitlabProject
+	}
 	remote, err := Git().Remote("origin")
 	if err != nil {
 		panic(err)
@@ -58,20 +63,23 @@ func GitlabProject() *gitlab.Project {
 	url := remote.Config().URLs[0]
 	path := strings.TrimPrefix(url, "git@gitlab.com:")
 	path = strings.TrimSuffix(path, ".git")
-	project, _, err := Gitlab().Projects.GetProject(path, &gitlab.GetProjectOptions{})
+	gitlabProject, _, err = Gitlab().Projects.GetProject(path, &gitlab.GetProjectOptions{})
 	if err != nil {
 		panic(err)
 	}
-	return project
+	return gitlabProject
 }
 
 func GitlabVars() (map[string]string, error) {
+	if gitlabVars != nil {
+		return gitlabVars, nil
+	}
+	gitlabVars = map[string]string{}
 	git := Gitlab()
 	project := GitlabProject()
 	groups := strings.Split(project.PathWithNamespace, "/")
 	groups = groups[0 : len(groups)-1]
 	groupPath := ""
-	varMap := map[string]string{}
 	for _, v := range groups {
 		groupPath = filepath.Join(groupPath, v)
 		opt := &gitlab.ListGroupVariablesOptions{
@@ -86,7 +94,7 @@ func GitlabVars() (map[string]string, error) {
 			if len(vars) > 0 {
 				for _, v := range vars {
 					if strings.HasPrefix(v.Key, varPrefix) {
-						varMap[strings.TrimPrefix(v.Key, varPrefix)] = v.Value
+						gitlabVars[strings.TrimPrefix(v.Key, varPrefix)] = v.Value
 					}
 				}
 			}
@@ -107,7 +115,7 @@ func GitlabVars() (map[string]string, error) {
 		}
 		if len(vars) > 0 {
 			for _, v := range vars {
-				varMap[v.Key] = v.Value
+				gitlabVars[v.Key] = v.Value
 			}
 		}
 		if resp.NextPage == 0 {
@@ -115,5 +123,5 @@ func GitlabVars() (map[string]string, error) {
 		}
 		opt.Page = resp.NextPage
 	}
-	return varMap, nil
+	return gitlabVars, nil
 }
