@@ -23,11 +23,8 @@ func New(varFile string) (*config, error) {
 		}
 		hclf = hclwrite.NewEmptyFile()
 	}
-	name := "default"
-	if varFile != "" {
-		filename := filepath.Base(varFile)
-		name = strings.TrimSuffix(filename, filepath.Ext(filename))
-	}
+	filename := filepath.Base(varFile)
+	name := strings.TrimSuffix(filename, ".tfvars")
 	return &config{
 		File: hclf,
 		Name: name,

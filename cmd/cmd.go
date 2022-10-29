@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 
 	"github.com/hashicorp/hcl/v2/hclwrite"
@@ -15,10 +16,10 @@ import (
 
 // Flags
 var (
-	help    bool
-	noInit  bool
-	region  string
-	varFile string
+	help       bool
+	noInit     bool
+	region     string
+	varFileDir string
 )
 
 func init() {
@@ -26,14 +27,18 @@ func init() {
 	flag.BoolVarP(&help, "help", "h", false, "Show help")
 	flag.BoolVarP(&noInit, "no-init", "n", false, "Generate tfvars but don't run terraform init")
 	flag.StringVarP(&region, "region", "r", "eu-west-1", "AWS region")
-	flag.StringVarP(&varFile, "var-file", "v", "", "Path to .tfvars file")
+	flag.StringVar(&varFileDir, "tfvars-dir", "tfvars", "Directiry containing tfvars files")
 	flag.Parse()
 }
 
 func Usage() {
-	fmt.Printf("Usage:\n  %s [FLAGS]\n", os.Args[0])
+	fmt.Printf("Usage:\n  %s NAME [FLAGS]\n\n", os.Args[0])
+
+	fmt.Println("NAME: the name of a tfvars file in --tfvars-dir")
+	fmt.Println()
 	fmt.Println("FLAGS:")
 	flag.PrintDefaults()
+	fmt.Println()
 }
 
 func Execute() error {
@@ -43,6 +48,17 @@ func Execute() error {
 		os.Exit(0)
 	}
 
+	args := flag.Args()
+	if len(args) != 1 {
+		flag.Usage()
+		return fmt.Errorf("missing required arg: NAME")
+	}
+
+	varFile := args[0]
+	if !strings.HasSuffix(varFile, ".tfvars") {
+		varFile = fmt.Sprintf("%s.tfvars", varFile)
+	}
+	varFile = path.Join(varFileDir, varFile)
 	cfg, err := config.New(varFile)
 	if err != nil {
 		return err
