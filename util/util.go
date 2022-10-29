@@ -59,14 +59,14 @@ func AccountID(region, key string) (string, error) {
 	return accountMap[key], nil
 }
 
-func Variables() tfVariables {
+func Variables() (tfVariables, error) {
 	if variables != nil {
-		return variables
+		return variables, nil
 	}
 	variables = tfVariables{}
 	cwd, err := os.Getwd()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	err = filepath.WalkDir(cwd, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -97,7 +97,7 @@ func Variables() tfVariables {
 		return nil
 	})
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return variables
+	return variables, nil
 }

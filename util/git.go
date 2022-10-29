@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,58 +17,66 @@ var repo *git.Repository
 
 const varPrefix = "TF_VAR_"
 
-func Git() *git.Repository {
+func Git() (*git.Repository, error) {
 	if repo != nil {
-		return repo
+		return repo, nil
 	}
 	d, err := os.Getwd()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	repo, err = git.PlainOpenWithOptions(d, &git.PlainOpenOptions{
 		DetectDotGit: true,
 	})
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return repo
+	return repo, nil
 }
 
-func Gitlab() *gitlab.Client {
+func Gitlab() (*gitlab.Client, error) {
 	if gitlabClient != nil {
-		return gitlabClient
+		return gitlabClient, nil
 	}
 	token, ok := os.LookupEnv("GITLAB_TOKEN")
 	if !ok {
 		token, ok = os.LookupEnv("CI_JOB_TOKEN")
 		if !ok {
-			panic("Gitlab token not found")
+			return nil, fmt.Errorf("Gitlab token not found in either GITLAB_TOKEN or CI_JOB_TOKEN")
 		}
 	}
 	var err error
 	gitlabClient, err = gitlab.NewClient(token)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return gitlabClient
+	return gitlabClient, nil
 }
 
-func GitlabProject() *gitlab.Project {
+func GitlabProject() (*gitlab.Project, error) {
 	if gitlabProject != nil {
-		return gitlabProject
+		return gitlabProject, nil
 	}
-	remote, err := Git().Remote("origin")
+	git, err := Git()
 	if err != nil {
-		panic(err)
+		return nil, err
+	}
+	remote, err := git.Remote("origin")
+	if err != nil {
+		return nil, err
 	}
 	url := remote.Config().URLs[0]
 	path := strings.TrimPrefix(url, "git@gitlab.com:")
 	path = strings.TrimSuffix(path, ".git")
-	gitlabProject, _, err = Gitlab().Projects.GetProject(path, &gitlab.GetProjectOptions{})
+	gclient, err := Gitlab()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return gitlabProject
+	gitlabProject, _, err = gclient.Projects.GetProject(path, &gitlab.GetProjectOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return gitlabProject, nil
 }
 
 func GitlabVars() (map[string]string, error) {
@@ -75,8 +84,14 @@ func GitlabVars() (map[string]string, error) {
 		return gitlabVars, nil
 	}
 	gitlabVars = map[string]string{}
-	git := Gitlab()
-	project := GitlabProject()
+	gclient, err := Gitlab()
+	if err != nil {
+		return nil, err
+	}
+	project, err := GitlabProject()
+	if err != nil {
+		return nil, err
+	}
 	groups := strings.Split(project.PathWithNamespace, "/")
 	groups = groups[0 : len(groups)-1]
 	groupPath := ""
@@ -87,7 +102,7 @@ func GitlabVars() (map[string]string, error) {
 			PerPage: 100,
 		}
 		for {
-			vars, resp, err := git.GroupVariables.ListVariables(groupPath, opt)
+			vars, resp, err := gclient.GroupVariables.ListVariables(groupPath, opt)
 			if err != nil {
 				return nil, err
 			}
@@ -109,7 +124,7 @@ func GitlabVars() (map[string]string, error) {
 		PerPage: 100,
 	}
 	for {
-		vars, resp, err := git.ProjectVariables.ListVariables(project.ID, opt)
+		vars, resp, err := gclient.ProjectVariables.ListVariables(project.ID, opt)
 		if err != nil {
 			return nil, err
 		}

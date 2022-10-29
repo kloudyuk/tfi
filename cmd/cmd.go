@@ -80,7 +80,10 @@ func Execute() error {
 	roleARN := fmt.Sprintf("arn:aws:iam::%s:role/%s-%s", accountID, "gitlab-terraform-runner-assume-role", region)
 	vars.SetAttributeValue("role_arn", cty.StringVal(roleARN))
 
-	project := util.GitlabProject()
+	project, err := util.GitlabProject()
+	if err != nil {
+		return err
+	}
 
 	// Set session_name
 	sessionName := strings.ToLower(strings.Join([]string{
@@ -91,7 +94,10 @@ func Execute() error {
 	}, "-"))
 	vars.SetAttributeValue("session_name", cty.StringVal(sessionName))
 
-	sourceVars := util.Variables()
+	sourceVars, err := util.Variables()
+	if err != nil {
+		return err
+	}
 	gitlabVars, err := util.GitlabVars()
 	if err != nil {
 		return err
