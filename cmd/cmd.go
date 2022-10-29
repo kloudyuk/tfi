@@ -51,7 +51,7 @@ func Execute() error {
 	vars := cfg.Body()
 
 	// Set env
-	var env = cfg.Name
+	env := cfg.Name
 	vars.SetAttributeValue("env", cty.StringVal(env))
 
 	// Set region
@@ -65,18 +65,26 @@ func Execute() error {
 	roleARN := fmt.Sprintf("arn:aws:iam::%s:role/%s-%s", accountID, "gitlab-terraform-runner-assume-role", region)
 	vars.SetAttributeValue("role_arn", cty.StringVal(roleARN))
 
+	project := util.GitlabProject()
+
 	// Set session_name
-	projectName, err := util.GitProjectName()
+	sessionName := strings.ToLower(strings.Join([]string{
+		"terraform",
+		project.Path,
+		env,
+		util.Username(),
+	}, "-"))
+	vars.SetAttributeValue("session_name", cty.StringVal(sessionName))
+
+	gitlabVars, err := util.GitlabVars()
 	if err != nil {
 		return err
 	}
-	sessionName := strings.Join([]string{
-		"terraform",
-		projectName,
-		env,
-		util.Username(),
-	}, "-")
-	vars.SetAttributeValue("session_name", cty.StringVal(sessionName))
+	for k, v := range gitlabVars {
+		if vars.GetAttribute(k) == nil {
+			vars.SetAttributeValue(k, cty.StringVal(v))
+		}
+	}
 
 	// Write tfvars
 	generatedVars := "tfi.auto.tfvars"
@@ -91,7 +99,7 @@ func Execute() error {
 
 	// Set backend config values
 	bucket := fmt.Sprintf("%s-%s-remote-state", env, region)
-	key := fmt.Sprintf("%s/terraform.tfstate", projectName)
+	key := fmt.Sprintf("%s/terraform.tfstate", project.Path)
 	dynamoDBTable := fmt.Sprintf("%s-%s-remote-state-lock", env, region)
 
 	// Run terraform init
