@@ -116,6 +116,10 @@ func Execute() error {
 		return err
 	}
 
+	if err := util.EnsureS3Backend(); err != nil {
+		return err
+	}
+
 	// Leave if skipping init
 	if noInit {
 		return nil

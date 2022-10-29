@@ -30,6 +30,25 @@ func (vars tfVariables) Has(name string) bool {
 	return false
 }
 
+func EnsureS3Backend() error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	return WalkHCL(cwd, func(path string, hclf *hclwrite.File) error {
+		tfblock := hclf.Body().FirstMatchingBlock("terraform", []string{})
+		if tfblock == nil {
+			return nil
+		}
+		backend := tfblock.Body().FirstMatchingBlock("backend", []string{"s3"})
+		if backend == nil {
+			tfblock.Body().AppendNewBlock("backend", []string{"s3"})
+			return os.WriteFile(path, hclwrite.Format(hclf.Bytes()), os.ModePerm)
+		}
+		return nil
+	})
+}
+
 func Username() string {
 	u, err := user.Current()
 	if err != nil {
@@ -68,11 +87,26 @@ func Variables() (tfVariables, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = filepath.WalkDir(cwd, func(path string, d fs.DirEntry, err error) error {
+	err = WalkHCL(cwd, func(path string, hclf *hclwrite.File) error {
+		for _, block := range hclf.Body().Blocks() {
+			if block.Type() == "variable" {
+				variables = append(variables, block.Labels()[0])
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return variables, nil
+}
+
+func WalkHCL(root string, fn func(path string, hclf *hclwrite.File) error) error {
+	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if path == cwd {
+		if path == root {
 			return nil
 		}
 		if d.IsDir() {
@@ -89,15 +123,6 @@ func Variables() (tfVariables, error) {
 		if diag.HasErrors() {
 			return fmt.Errorf("failed to parse %s: %s", path, diag.Error())
 		}
-		for _, block := range hclf.Body().Blocks() {
-			if block.Type() == "variable" {
-				variables = append(variables, block.Labels()[0])
-			}
-		}
-		return nil
+		return fn(path, hclf)
 	})
-	if err != nil {
-		return nil, err
-	}
-	return variables, nil
 }
