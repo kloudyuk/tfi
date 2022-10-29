@@ -3,9 +3,8 @@ package main
 import (
 	"os"
 
-	"github.com/kloudyuk/tfi/cmd"
-
 	"github.com/fatih/color"
+	"github.com/kloudyuk/tfi/cmd"
 )
 
 var e = color.New(color.FgRed)

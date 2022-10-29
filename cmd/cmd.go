@@ -6,10 +6,9 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/kloudyuk/tfi/config"
 	"github.com/kloudyuk/tfi/util"
-
-	"github.com/hashicorp/hcl/v2/hclwrite"
 	flag "github.com/spf13/pflag"
 	"github.com/zclconf/go-cty/cty"
 )
