@@ -32,9 +32,8 @@ func init() {
 }
 
 func Usage() {
-	fmt.Printf("Usage:\n  %s NAME [FLAGS]\n\n", os.Args[0])
-
-	fmt.Println("NAME: the name of a tfvars file in --tfvars-dir")
+	fmt.Printf("USAGE: %s NAME [FLAGS]\n\n", os.Args[0])
+	fmt.Println("NAME: The name of a .tfvars file in --tfvars-dir (you can omit the .tfvars suffix)")
 	fmt.Println()
 	fmt.Println("FLAGS:")
 	flag.PrintDefaults()
