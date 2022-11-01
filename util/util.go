@@ -30,25 +30,6 @@ func (vars tfVariables) Has(name string) bool {
 	return false
 }
 
-func EnsureS3Backend() error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	return WalkHCL(cwd, func(path string, hclf *hclwrite.File) error {
-		tfblock := hclf.Body().FirstMatchingBlock("terraform", []string{})
-		if tfblock == nil {
-			return nil
-		}
-		backend := tfblock.Body().FirstMatchingBlock("backend", []string{"s3"})
-		if backend == nil {
-			tfblock.Body().AppendNewBlock("backend", []string{"s3"})
-			return os.WriteFile(path, hclwrite.Format(hclf.Bytes()), os.ModePerm)
-		}
-		return nil
-	})
-}
-
 func Username() string {
 	u, err := user.Current()
 	if err != nil {
@@ -58,6 +39,7 @@ func Username() string {
 }
 
 func AccountID(region, key string) (string, error) {
+	fmt.Fprintf(os.Stderr, "Getting AWS account ID for %s\n", key)
 	cfg, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(region))
 	if err != nil {
 		return "", err
@@ -75,10 +57,15 @@ func AccountID(region, key string) (string, error) {
 	if err := json.Unmarshal([]byte(*param.Parameter.Value), &accountMap); err != nil {
 		return "", err
 	}
-	return accountMap[key], nil
+	id, ok := accountMap[key]
+	if !ok {
+		return "", fmt.Errorf("account ID not found for env: %s", key)
+	}
+	return id, nil
 }
 
 func Variables() (tfVariables, error) {
+	fmt.Fprintln(os.Stderr, "Getting terraform variables")
 	if variables != nil {
 		return variables, nil
 	}

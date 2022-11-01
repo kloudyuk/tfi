@@ -38,13 +38,7 @@ func Gitlab() (*gitlab.Client, error) {
 	if gitlabClient != nil {
 		return gitlabClient, nil
 	}
-	token, ok := os.LookupEnv("GITLAB_TOKEN")
-	if !ok {
-		token, ok = os.LookupEnv("CI_JOB_TOKEN")
-		if !ok {
-			return nil, fmt.Errorf("Gitlab token not found in either GITLAB_TOKEN or CI_JOB_TOKEN")
-		}
-	}
+	token := os.Getenv("GITLAB_TOKEN")
 	var err error
 	gitlabClient, err = gitlab.NewClient(token)
 	if err != nil {
@@ -57,6 +51,7 @@ func GitlabProject() (*gitlab.Project, error) {
 	if gitlabProject != nil {
 		return gitlabProject, nil
 	}
+	fmt.Fprintln(os.Stderr, "Fetching Gitlab project info")
 	git, err := Git()
 	if err != nil {
 		return nil, err
@@ -80,6 +75,7 @@ func GitlabProject() (*gitlab.Project, error) {
 }
 
 func GitlabVars() (map[string]string, error) {
+	fmt.Fprintln(os.Stderr, "Getting Gitlab variables")
 	if gitlabVars != nil {
 		return gitlabVars, nil
 	}
